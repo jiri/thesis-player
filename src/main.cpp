@@ -29,7 +29,11 @@ static std::unordered_map<u8, std::tuple<u8, u8, u8>> palette {
         { 0x0F, { 0xFF, 0xFF, 0xFF } },
 };
 
-int main() {
+int main(int argc, const char* argv[]) {
+    if (argc != 2) {
+        printf("Please provide a path to binary");
+    }
+
     /* Initialize SDL */
     SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -38,7 +42,7 @@ int main() {
     SDL_RenderSetScale(renderer, 4.0f, 4.0f);
 
     /* Read whole binary file */
-    std::ifstream ifs(std::getenv("BINARY"), std::ios_base::binary | std::ios_base::ate);
+    std::ifstream ifs(argv[1], std::ios_base::binary | std::ios_base::ate);
     auto size = ifs.tellg();
     std::vector<u8> program(size);
     ifs.seekg(0, std::ios_base::beg);
