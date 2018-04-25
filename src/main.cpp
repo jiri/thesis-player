@@ -46,35 +46,58 @@ int main() {
 
     /* Initialize Mcu */
     Mcu mcu;
-
     mcu.load_program(program);
-
-    mcu.interrupts.enabled = true;
 
     /* Main loop */
     bool done = false;
     while (!done) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            static u8 old_button_state = 0x00;
+            u8 button_state = old_button_state;
+
             switch (e.type) {
                 case SDL_QUIT:
                     done = true;
                     break;
 
                 case SDL_KEYDOWN:
-                    if (e.key.keysym.sym == SDLK_UP ||
-                        e.key.keysym.sym == SDLK_DOWN ||
-                        e.key.keysym.sym == SDLK_LEFT ||
-                        e.key.keysym.sym == SDLK_RIGHT) {
-                        mcu.interrupts.button = true;
+                    switch (e.key.keysym.sym) {
+                        case SDLK_UP:    button_state |= (1 << 0); break;
+                        case SDLK_DOWN:  button_state |= (1 << 1); break;
+                        case SDLK_LEFT:  button_state |= (1 << 2); break;
+                        case SDLK_RIGHT: button_state |= (1 << 3); break;
+                        case SDLK_z:     button_state |= (1 << 4); break;
+                        case SDLK_x:     button_state |= (1 << 5); break;
+                        default: break;
                     }
                     break;
+
+                case SDL_KEYUP:
+                    switch (e.key.keysym.sym) {
+                        case SDLK_UP:    button_state &= ~(1 << 0); break;
+                        case SDLK_DOWN:  button_state &= ~(1 << 1); break;
+                        case SDLK_LEFT:  button_state &= ~(1 << 2); break;
+                        case SDLK_RIGHT: button_state &= ~(1 << 3); break;
+                        case SDLK_z:     button_state &= ~(1 << 4); break;
+                        case SDLK_x:     button_state &= ~(1 << 5); break;
+                        default: break;
+                    }
+                    break;
+
                 default:
                     break;
+            }
+
+            if (button_state != old_button_state) {
+                mcu.button_interrupt(button_state);
+                old_button_state = button_state;
             }
         }
 
         /* Step */
+        mcu.vblank_interrupt();
+
         for (int i = 0; i < 266667; i++) {
             mcu.step();
         }
@@ -93,7 +116,6 @@ int main() {
                 SDL_RenderDrawPoint(renderer, x, y);
             }
         }
-
 
         SDL_RenderPresent(renderer);
     }
