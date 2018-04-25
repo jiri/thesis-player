@@ -3,6 +3,8 @@ project(player)
 
 set(CMAKE_CXX_STANDARD 17)
 
+add_compile_options(-include${CMAKE_CURRENT_SOURCE_DIR}/common/typedefs.hpp)
+
 # Libraries
 add_subdirectory(lib/emulator)
 
