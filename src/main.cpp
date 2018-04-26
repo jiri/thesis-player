@@ -52,13 +52,39 @@ int main(int argc, const char* argv[]) {
     Mcu mcu;
     mcu.load_program(program);
 
+    mcu.io_handlers[0x02] = IoHandler {
+        .get = []() {
+            const u8* state = SDL_GetKeyboardState(nullptr);
+
+            return (state[SDLK_UP]    << 0u) |
+                   (state[SDLK_DOWN]  << 1u) |
+                   (state[SDLK_LEFT]  << 2u) |
+                   (state[SDLK_RIGHT] << 3u) |
+                   (state[SDLK_z]     << 4u) |
+                   (state[SDLK_x]     << 5u);
+        },
+    };
+
+    mcu.io_handlers[0x10] = IoHandler {
+        .set = [](u8 chr) {
+            putc(chr, stdout);
+        },
+    };
+
+    u8 keyboard_buffer = 0x00;
+
+    mcu.io_handlers[0x03] = IoHandler {
+        .get = [&keyboard_buffer]() {
+            return keyboard_buffer;
+        },
+    };
+
     /* Main loop */
     bool done = false;
     while (!done) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            static u8 old_button_state = 0x00;
-            u8 button_state = old_button_state;
+            bool key_event = false;
 
             switch (e.type) {
                 case SDL_QUIT:
@@ -66,26 +92,22 @@ int main(int argc, const char* argv[]) {
                     break;
 
                 case SDL_KEYDOWN:
-                    switch (e.key.keysym.sym) {
-                        case SDLK_UP:    button_state |= (1 << 0); break;
-                        case SDLK_DOWN:  button_state |= (1 << 1); break;
-                        case SDLK_LEFT:  button_state |= (1 << 2); break;
-                        case SDLK_RIGHT: button_state |= (1 << 3); break;
-                        case SDLK_z:     button_state |= (1 << 4); break;
-                        case SDLK_x:     button_state |= (1 << 5); break;
-                        default: break;
+                    if (e.key.keysym.sym >= SDLK_a && e.key.keysym.sym <= SDLK_z) {
+                        mcu.interrupts.keyboard = true;
+                        keyboard_buffer = static_cast<u8>(e.key.keysym.sym);
                     }
-                    break;
-
                 case SDL_KEYUP:
                     switch (e.key.keysym.sym) {
-                        case SDLK_UP:    button_state &= ~(1 << 0); break;
-                        case SDLK_DOWN:  button_state &= ~(1 << 1); break;
-                        case SDLK_LEFT:  button_state &= ~(1 << 2); break;
-                        case SDLK_RIGHT: button_state &= ~(1 << 3); break;
-                        case SDLK_z:     button_state &= ~(1 << 4); break;
-                        case SDLK_x:     button_state &= ~(1 << 5); break;
-                        default: break;
+                        case SDLK_UP:
+                        case SDLK_DOWN:
+                        case SDLK_LEFT:
+                        case SDLK_RIGHT:
+                        case SDLK_z:
+                        case SDLK_x:
+                            key_event = true;
+                            break;
+                        default:
+                            break;
                     }
                     break;
 
@@ -93,14 +115,13 @@ int main(int argc, const char* argv[]) {
                     break;
             }
 
-            if (button_state != old_button_state) {
-                mcu.button_interrupt(button_state);
-                old_button_state = button_state;
+            if (key_event) {
+                mcu.interrupts.button = true;
             }
         }
 
         /* Step */
-        mcu.vblank_interrupt();
+        mcu.interrupts.vblank = true;
 
         for (int i = 0; i < 266667; i++) {
             mcu.step();
@@ -123,6 +144,8 @@ int main(int argc, const char* argv[]) {
 
         SDL_RenderPresent(renderer);
     }
+
+    putc('\n', stdout);
 
     SDL_Quit();
 
