@@ -58,12 +58,13 @@ int main(int argc, const char* argv[]) {
         .get = []() {
             const u8* state = SDL_GetKeyboardState(nullptr);
 
-            return (state[SDL_SCANCODE_UP]    << 0u) |
-                   (state[SDL_SCANCODE_DOWN]  << 1u) |
-                   (state[SDL_SCANCODE_LEFT]  << 2u) |
-                   (state[SDL_SCANCODE_RIGHT] << 3u) |
-                   (state[SDL_SCANCODE_Z]     << 4u) |
-                   (state[SDL_SCANCODE_X]     << 5u);
+            return (state[SDL_SCANCODE_UP]     << 0u) |
+                   (state[SDL_SCANCODE_DOWN]   << 1u) |
+                   (state[SDL_SCANCODE_LEFT]   << 2u) |
+                   (state[SDL_SCANCODE_RIGHT]  << 3u) |
+                   (state[SDL_SCANCODE_Z]      << 4u) |
+                   (state[SDL_SCANCODE_X]      << 5u) |
+                   (state[SDL_SCANCODE_RETURN] << 6u);
         },
     };
 
@@ -97,7 +98,7 @@ int main(int argc, const char* argv[]) {
     while (!done) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            bool key_event = false;
+            bool button_event = false;
 
             switch (e.type) {
                 case SDL_QUIT:
@@ -117,7 +118,8 @@ int main(int argc, const char* argv[]) {
                         case SDLK_RIGHT:
                         case SDLK_z:
                         case SDLK_x:
-                            key_event = true;
+                        case SDLK_RETURN:
+                            button_event = true;
                             break;
                         default:
                             break;
@@ -128,7 +130,7 @@ int main(int argc, const char* argv[]) {
                     break;
             }
 
-            if (key_event) {
+            if (button_event) {
                 mcu.interrupts.button = true;
             }
         }
