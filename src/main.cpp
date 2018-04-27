@@ -43,6 +43,11 @@ int main(int argc, const char* argv[]) {
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_RenderSetScale(renderer, 4.0f, 4.0f);
 
+    SDL_Surface* surface = SDL_LoadBMP("res/font_8x8.bmp");
+    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 0xFF, 0x00, 0xFF));
+    SDL_Texture* font = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+
     /* Read whole binary file */
     std::ifstream ifs(argv[1], std::ios_base::binary | std::ios_base::ate);
     auto size = ifs.tellg();
@@ -68,28 +73,51 @@ int main(int argc, const char* argv[]) {
         },
     };
 
-    std::queue<u8> serial_buffer {};
-
-    mcu.io_handlers[0x10] = IoHandler {
-        .get = [&serial_buffer]() -> u8 {
-            if (serial_buffer.empty()) {
-                return 0x00;
-            }
-
-            auto tmp = serial_buffer.front();
-            serial_buffer.pop();
-            return tmp;
-        },
-        .set = [](u8 chr) {
-            putc(chr, stdout);
-        },
-    };
-
     u8 keyboard_buffer = 0x00;
 
     mcu.io_handlers[0x03] = IoHandler {
         .get = [&keyboard_buffer]() {
             return keyboard_buffer;
+        },
+    };
+
+    std::queue<u8> serial_buffer {};
+
+    mcu.io_handlers[0x10] = IoHandler {
+            .get = [&serial_buffer]() -> u8 {
+                if (serial_buffer.empty()) {
+                    return 0x00;
+                }
+
+                auto tmp = serial_buffer.front();
+                serial_buffer.pop();
+                return tmp;
+            },
+            .set = [](u8 chr) {
+                putc(chr, stdout);
+            },
+    };
+
+    enum class DisplayMode {
+        None,
+        Graphical,
+        Text,
+    };
+
+    DisplayMode display_mode = DisplayMode::None;
+
+    mcu.io_handlers[0x05] = IoHandler {
+        .set = [&display_mode](u8 mode) {
+            switch (mode) {
+                case 0x10:
+                    display_mode = DisplayMode::Graphical;
+                    break;
+                case 0x13:
+                    display_mode = DisplayMode::Text;
+                    break;
+                default:
+                    display_mode = DisplayMode::None;
+            }
         },
     };
 
@@ -164,18 +192,46 @@ int main(int argc, const char* argv[]) {
         }
 
         /* Render */
-        SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderClear(renderer);
 
         /* Render screen */
-        for (u16 y = 0; y < 144; y++) {
-            for (u16 x = 0; x < 160; x++) {
-                auto byte = mcu.memory[0x8000 + y * 160 + x];
-                auto [ r, g, b ] = palette[byte];
+        switch (display_mode) {
+            case DisplayMode::None:
+                break;
 
-                SDL_SetRenderDrawColor(renderer, r, g, b, 0xFF);
-                SDL_RenderDrawPoint(renderer, x, y);
-            }
+            case DisplayMode::Graphical:
+                for (u16 y = 0; y < 144; y++) {
+                    for (u16 x = 0; x < 160; x++) {
+                        auto byte = mcu.memory[0x8000 + y * 160 + x];
+                        auto [ r, g, b ] = palette[byte];
+
+                        SDL_SetRenderDrawColor(renderer, r, g, b, 0xFF);
+                        SDL_RenderDrawPoint(renderer, x, y);
+                    }
+                }
+                break;
+
+            case DisplayMode::Text:
+                for (u16 y = 0; y < 18; y++) {
+                    for (u16 x = 0; x < 20; x++) {
+                        auto clr = mcu.memory[0x8000 + y * 20 * 2 + x * 2 + 0];
+                        auto chr = mcu.memory[0x8000 + y * 20 * 2 + x * 2 + 1];
+
+                        auto [ br, bg, bb ] = palette[(clr & 0x0F) >> 0];
+                        auto [ fr, fg, fb ] = palette[(clr & 0xF0) >> 4];
+
+                        SDL_Rect src { (chr % 16) * 8, (chr / 16) * 8, 8, 8 };
+                        SDL_Rect dst { x * 8, y * 8, 8, 8 };
+
+                        SDL_SetRenderDrawColor(renderer, br, bg, bb, 0xFF);
+                        SDL_RenderFillRect(renderer, &dst);
+
+                        SDL_SetTextureColorMod(font, fr, fg, fb);
+                        SDL_RenderCopy(renderer, font, &src, &dst);
+                    }
+                }
+                break;
         }
 
         SDL_RenderPresent(renderer);
