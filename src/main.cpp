@@ -133,6 +133,10 @@ int main(int argc, const char* argv[]) {
             }
         }
 
+        if (done) {
+            break;
+        }
+
         /* Read from stdin */
         pollfd fds[1];
 
@@ -176,7 +180,6 @@ int main(int argc, const char* argv[]) {
     }
 
     putc('\n', stdout);
-
     SDL_Quit();
 
     return 0;
