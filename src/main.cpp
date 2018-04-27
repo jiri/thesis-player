@@ -56,12 +56,12 @@ int main(int argc, const char* argv[]) {
         .get = []() {
             const u8* state = SDL_GetKeyboardState(nullptr);
 
-            return (state[SDLK_UP]    << 0u) |
-                   (state[SDLK_DOWN]  << 1u) |
-                   (state[SDLK_LEFT]  << 2u) |
-                   (state[SDLK_RIGHT] << 3u) |
-                   (state[SDLK_z]     << 4u) |
-                   (state[SDLK_x]     << 5u);
+            return (state[SDL_SCANCODE_UP]    << 0u) |
+                   (state[SDL_SCANCODE_DOWN]  << 1u) |
+                   (state[SDL_SCANCODE_LEFT]  << 2u) |
+                   (state[SDL_SCANCODE_RIGHT] << 3u) |
+                   (state[SDL_SCANCODE_Z]     << 4u) |
+                   (state[SDL_SCANCODE_X]     << 5u);
         },
     };
 
