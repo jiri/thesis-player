@@ -70,7 +70,11 @@ int main(int argc, const char* argv[]) {
     std::queue<u8> serial_buffer {};
 
     mcu.io_handlers[0x10] = IoHandler {
-        .get = [&serial_buffer]() {
+        .get = [&serial_buffer]() -> u8 {
+            if (serial_buffer.empty()) {
+                return 0x00;
+            }
+
             auto tmp = serial_buffer.front();
             serial_buffer.pop();
             return tmp;
