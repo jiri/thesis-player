@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <queue>
+#include <poll.h>
 
 #include <SDL2/SDL.h>
 
@@ -65,7 +67,14 @@ int main(int argc, const char* argv[]) {
         },
     };
 
+    std::queue<u8> serial_buffer {};
+
     mcu.io_handlers[0x10] = IoHandler {
+        .get = [&serial_buffer]() {
+            auto tmp = serial_buffer.front();
+            serial_buffer.pop();
+            return tmp;
+        },
         .set = [](u8 chr) {
             putc(chr, stdout);
         },
@@ -118,6 +127,23 @@ int main(int argc, const char* argv[]) {
             if (key_event) {
                 mcu.interrupts.button = true;
             }
+        }
+
+        /* Read from stdin */
+        pollfd fds[1];
+
+        fds[0].fd = fileno(stdin);
+        fds[0].events = POLLIN;
+
+        if (poll(fds, 1, 0) == 1) {
+            std::string line;
+            getline(std::cin, line);
+
+            for (auto c : line) {
+                serial_buffer.push(c);
+            }
+
+            mcu.interrupts.serial = true;
         }
 
         /* Step */
